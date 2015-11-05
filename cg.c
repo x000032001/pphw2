@@ -306,6 +306,7 @@ static void conj_grad(int colidx[],
 
 	rho = 0.0;
 
+	/* memcpy by O3 */
 	for (j = 0; j < naa+1; j++) {
 		q[j] = 0.0;
 		z[j] = 0.0;
@@ -313,6 +314,7 @@ static void conj_grad(int colidx[],
 		p[j] = r[j];
 	}
 
+#pragma omp parallel for reduction (+:rho)
 	for (j = 0; j < lastcol - firstcol + 1/* 14000 */; j++) {
 		rho = rho + r[j]*r[j];
 	}
