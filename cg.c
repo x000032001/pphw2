@@ -304,7 +304,6 @@ static void conj_grad(int colidx[],
 	int cgit, cgitmax = 25;
 	double d, sum, rho, rho0, alpha, beta;
 
-	rho = 0.0;
 
 	/* memcpy by O3 */
 	for (j = 0; j < naa+1; j++) {
@@ -314,7 +313,8 @@ static void conj_grad(int colidx[],
 		p[j] = r[j];
 	}
 
-#pragma omp parallel for reduction (+:rho)
+	rho = 0.0;
+    #pragma omp parallel for reduction (+:rho)
 	for (j = 0; j < lastcol - firstcol + 1/* 14000 */; j++) {
 		rho = rho + r[j]*r[j];
 	}
@@ -322,40 +322,53 @@ static void conj_grad(int colidx[],
 	/* cgit not used */
 	for (cgit = 1; cgit <= cgitmax/* 25 */; cgit++) {
 
-#pragma omp parallel for
-		for (j = 0; j < lastrow - firstrow + 1/* 14000 */; j++) {
-			/* rename as privated */
-			double psum = 0.0;
-			for (k = rowstr[j]; k < rowstr[j+1]; k++) {
-				psum = psum + a[k]*p[colidx[k]];
-			}
-			q[j] = psum;
-		}
-
 		d = 0.0;
-		for (j = 0; j < lastcol - firstcol + 1; j++) {
-			d = d + p[j]*q[j];
+
+		#pragma omp parallel
+		{
+			#pragma omp for
+			for (j = 0; j < lastrow - firstrow + 1/* 14000 */; j++) {
+				/* rename as privated */
+				double psum = 0.0;
+				for (k = rowstr[j]; k < rowstr[j+1]; k++) {
+					psum = psum + a[k]*p[colidx[k]];
+				}
+				q[j] = psum;
+			}
+
+            #pragma omp for reduction (+:d)
+			for (j = 0; j < lastcol - firstcol + 1; j++) {
+				d = d + p[j]*q[j];
+			}
+
+            #pragma omp single
+			{
+				alpha = rho / d;
+				rho0 = rho;
+				rho = 0.0;
+			}
+
+			#pragma omp for
+			for (j = 0; j < lastcol - firstcol + 1; j++) {
+				z[j] = z[j] + alpha*p[j];  
+				r[j] = r[j] - alpha*q[j];
+			}
+
+			#pragma omp for
+			for (j = 0; j < lastcol - firstcol + 1; j++) {
+				rho = rho + r[j]*r[j];
+			}
+
+            #pragma omp single
+			beta = rho / rho0;
+
+			#pragma omp for
+			for (j = 0; j < lastcol - firstcol + 1; j++) {
+				p[j] = r[j] + beta*p[j];
+			}
+
 		}
 
-		alpha = rho / d;
-
-		rho0 = rho;
-
-		rho = 0.0;
-		for (j = 0; j < lastcol - firstcol + 1; j++) {
-			z[j] = z[j] + alpha*p[j];  
-			r[j] = r[j] - alpha*q[j];
-		}
-
-		for (j = 0; j < lastcol - firstcol + 1; j++) {
-			rho = rho + r[j]*r[j];
-		}
-
-		beta = rho / rho0;
-
-		for (j = 0; j < lastcol - firstcol + 1; j++) {
-			p[j] = r[j] + beta*p[j];
-		}
 	} // end of do cgit=1,cgitmax
 
 	sum = 0.0;
