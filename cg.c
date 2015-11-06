@@ -314,7 +314,6 @@ static void conj_grad(int colidx[],
 	}
 
 	rho = 0.0;
-    #pragma omp parallel for reduction (+:rho)
 	for (j = 0; j < lastcol - firstcol + 1/* 14000 */; j++) {
 		rho = rho + r[j]*r[j];
 	}
@@ -326,7 +325,7 @@ static void conj_grad(int colidx[],
 
 		#pragma omp parallel
 		{
-			#pragma omp for
+			#pragma omp for nowait 
 			for (j = 0; j < lastrow - firstrow + 1/* 14000 */; j++) {
 				/* rename as privated */
 				double psum = 0.0;
@@ -336,7 +335,7 @@ static void conj_grad(int colidx[],
 				q[j] = psum;
 			}
 
-            #pragma omp for reduction (+:d)
+            #pragma omp for reduction (+:d) 
 			for (j = 0; j < lastcol - firstcol + 1; j++) {
 				d = d + p[j]*q[j];
 			}
@@ -348,23 +347,16 @@ static void conj_grad(int colidx[],
 				rho = 0.0;
 			}
 
-			#pragma omp for
+			#pragma omp for 
 			for (j = 0; j < lastcol - firstcol + 1; j++) {
 				z[j] = z[j] + alpha*p[j];  
 				r[j] = r[j] - alpha*q[j];
-			}
-
-			#pragma omp for
-			for (j = 0; j < lastcol - firstcol + 1; j++) {
 				rho = rho + r[j]*r[j];
 			}
 
-            #pragma omp single
-			beta = rho / rho0;
-
-			#pragma omp for
+			#pragma omp for nowait 
 			for (j = 0; j < lastcol - firstcol + 1; j++) {
-				p[j] = r[j] + beta*p[j];
+				p[j] = r[j] + rho / rho0 *p[j];
 			}
 
 		}
