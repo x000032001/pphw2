@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include <gperftools/profiler.h>
+
 #include "globals.h"
 #include "randdp.h"
 #include "timers.h"
@@ -85,6 +87,7 @@ static void vecset(int n, double v[], int iv[], int *nzv, int i, double val);
 
 int main(int argc, char *argv[])
 {
+	ProfilerStart("cg.prof");
   int i, j, k, it;
 
   double zeta;
@@ -282,6 +285,7 @@ int main(int argc, char *argv[])
   
   printf("\n\nExecution time : %lf seconds\n\n", t);
   
+  ProfilerStop();
   return 0;
 }
 
@@ -347,16 +351,18 @@ static void conj_grad(int colidx[],
 				rho = 0.0;
 			}
 
-			#pragma omp for 
+			#pragma omp for
 			for (j = 0; j < lastcol - firstcol + 1; j++) {
 				z[j] = z[j] + alpha*p[j];  
 				r[j] = r[j] - alpha*q[j];
 				rho = rho + r[j]*r[j];
 			}
 
+			beta = rho / rho0;
+
 			#pragma omp for nowait 
 			for (j = 0; j < lastcol - firstcol + 1; j++) {
-				p[j] = r[j] + rho / rho0 *p[j];
+				p[j] = r[j] + beta *p[j];
 			}
 
 		}

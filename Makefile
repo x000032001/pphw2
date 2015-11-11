@@ -12,7 +12,7 @@ OBJS = cg.o \
        ${COMMON}/wtime.o
 
 ${PROGRAM}: config ${OBJS}
-	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
+	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB} -lprofiler
 
 .c.o:
 	${CCOMPILE} $< -D${DATASIZE}
